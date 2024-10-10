@@ -75,3 +75,134 @@ after first establishing an SSH connection with the new cloud server via PowerSh
 
   *Ref. 4: A screenshot of TheHive installation script*
 </div>
+
+### Configuring Wazuh, TheHive, and Cassandra
+Now that we have successfully spun up the appropriate servers and downloaded the corresponding applications, we need to configure these applications for our purposes. We will begin with Cassandra
+#### Cassandra Configuration
+The file of interest is located at:
+
+    /etc/cassandra/cassandra.yaml
+
+We'll first change the cluster name to Auto-SOC to reflect the purpose of the server. We also need to change the listen address and the rpc address fields to the public address of the TheHive server. Finally, we need to change the address of the seed provider, also to the public TheHive server. 
+
+<div>
+  <img src="lab_images/Cassandra Config Snapshot.png" alt="SOC Automation Network Diagram" width="500" height="150">
+
+  *Ref. 5: A screenshot of the Cassandra configuration file, and one of the changes made therein*
+</div>
+The next step is to remove the old configuration files, which may be done via the command:
+
+    rm -rf /var/lib/cassandra/*
+
+Now that these old files are gone, we need to restart the Cassandra service, which may be done in the usual method via systemctl:
+
+    systemctl start cassandra.service
+
+We can also check the status of the service to make sure everything has worked properly:
+
+    systemctl status cassandra.service
+
+In our case, everything was successful, and we can move onto Elasticsearch.
+
+<div>
+  <img src="lab_images/Cassandra Further Config.png" alt="SOC Automation Network Diagram" width="700" height="150">
+
+  *Ref. 6: A screenshot of the Cassandra status check, note the words enabled, Active, on lines blank, which indicate our success*
+</div>
+
+#### Elasticsearch Configuration
+In this case, the config file is located at 
+
+    /etc/elasticsearch/elasticsearch.yml
+which we will open for editing with Vim. Once there, as in elasticsearch, we will need to change the IP address to which the service is going to bind to the public address of our server so it will be reachable over the network, and the cluster name. We thus locate the newtork host field and the cluster name fields, changing each to their appropriate value. We will also want to be sure to uncomment the line which contains the node.name field, which in our case is on line 23. Finally, we find the cluseter.initial_master field, and edit it so that the text contained within the brackets so that it only contains "node-1". This field is used to scale the service, but we will not be performing any scaling for this lab, so we only need node-1. 
+
+As with Cassandra, we will now need to restart the service in order to use the changes we have made to the configuration file. 
+<div>
+  <img src="lab_images/Starting Elasticsearch.png" alt="SOC Automation Network Diagram" width="700" height="150">
+
+  *Ref. 7: A screenshot of the Elasticsearch start and enablement sequence*
+</div>
+
+#### Configuring TheHive
+This time around, the configuration file is located at 
+
+    /etc/thehive/application.conf
+
+after opening the file with Vim, we need to make similar changes as those applied to the pervious two files. First, we need to make sure the application binds to the server's public IP address. To accomplish this, we edit both the index.search field and the hostname field, found within the db.janusgraph section to the server's public address. We must also change the URI to the proper address, which is specified by the application.baseUri field. After making all of these changes, one may notice the following section: 
+
+<div>
+  <img src="lab_images/thehive Storage File Specification.png" alt="SOC Automation Network Diagram" width="700" height="150">
+
+  *Ref. 8: A screenshot of the TheHive configuration file which gives instructions for changing the ownership of the /opt/thp directory*
+</div>
+
+Due to the color scheme I have configured on my PowerShell instance, the text is a little difficult to read. However, it indicates we need to change the ownership of a particular directory to a service account associated with TheHive application in order for TheHive to work properly. We do this with the following command:
+
+    chown -R thehive:thehive /opt/thp
+Once we have made these changes, we once again must restart and enable the service, which will be done with the following two commands. First,
+
+    systemctl start thehive.service
+
+then 
+
+    systemctl enable thehive.service
+Now, we will navigate to the web console and see if we made a mistake somewhere. 
+
+#### Checking the Configuration
+TheHive console is accessed through a web browser, so we navigate to the public address of the IP, specifying port 9000, using our browser of choice:
+
+    http://155.138.165.187:9000
+
+And... success! We are presented with the login screen. 
+
+<div>
+  <img src="lab_images/TheHive Console Success.png" alt="SOC Automation Network Diagram" width="700" height="300">
+
+  *Ref. 9: A screenshot of the TheHive login page*
+</div>
+
+The default credentials are: 
+
+    Username: admin@TheHive.local
+    Password: secret
+
+and after inputting these into their respective form fields, we are granted access to the basic TheHive panel. This is great news and means that our configuration attempts were most likely a completes success! The next step in the process is to configure Wazuh. 
+
+### Configuring Wazuh
+Configuring Wazuh will be a slightly different process than configuring TheHive. In this step, we will be installing an agent on our Windows machine. This agent will be responsible for ingesting the sysmon data generated on that machine, and sending it to the Wazuh server for processing. To begin, we need to access the Wazuh application, which, similarly to TheHive, is accessed via web browser, and so we navigate to the public IP address of the Wazuh server:
+
+    https://66.42.82.228
+    
+(Wazuh defaults to port 443 so we don't need to specify the port in our address). We are thus presented with the Wazuh login screen, and after inputting the credentials outputted in the installation process, we gain access to the Wazuh console.  
+
+<div>
+  <img src="lab_images/Wazuh_Console_Success.png" alt="SOC Automation Network Diagram" width="700" height="300">
+
+  *Ref. 9: A screenshot of the Wazuh console page upon initial login*
+</div>
+
+There will be a convenient link to add a new agent prominently displayed on the console, and we can simply click this link to begin the process of installing the Wazuh agent on our Windows machine. 
+
+Once the link has been clicked, we must specify the operating system of the host on which the agent will be installed, the address the agent will use to communicate with the central Wazuh server (the public IP address of our Wazuh server in this case), as well as optional settings such as an agent name and a group. We will skip the group for now, but input the agent name as Auto-SOC-WIN. After filling in the necessary information, a PowerShell command will be provided that can be used to download the agent on our Windows machine. Thus, we RDP into the machine and run the command. 
+
+<div>
+  <img src="lab_images/Downloading_Wazuh_Agent.png" alt="SOC Automation Network Diagram" width="700" height="100">
+
+  *Ref. 10: The PowerShell command which downloads the Wazuh agent onto the Windows host*
+</div>
+
+After the command finishes exuting, we start the Wazuh service on our Windows host with the command below:
+
+    net start wazuhsvc
+
+and then hope the agent is able to orchestrate a connection with the Wazuh server. We can verify the object of our hope by checking back into the Wazuh console to see if the agent has connected to Wazuh successfully, and in our case, the connection was indeed successful. 
+
+<div>
+  <img src="lab_images/Windows_Agent_Connected.png" alt="SOC Automation Network Diagram" width="650" height="250">
+
+  *Ref. 11: The Wazuh console after our Windows agent has successfully connected*
+</div>
+
+Now that we have a working Wazuh agent, we create a Wazuh rule for detecting the malicious executable Mimikatz. 
+
+
