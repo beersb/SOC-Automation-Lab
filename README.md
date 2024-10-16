@@ -29,9 +29,7 @@ As breifly explained above, the overall goal of this project was to set-up a bas
 *Ref 1: Network Diagram*
 
 ### Deploying the Windows 10 Client and Installing Sysmon
-The first step in the lab will be to deploy the Windows 10 client which will act as the victim in our project scenario. To do this, we navigate to our Vultr panel and deploy a new instance, specifying Windows 10 as the operating system and allocating an appropriate amount of RAM, storage, and CPU cores. We also create a Firewall policy that blocks all traffic from all IP addresses except for the SOC analyst laptop, which is given TCP access on all ports, and then add the new Windows host to this policy. This is a critical step, as otherwise our host will be exposed to the entire internet, and will be the victim of a shockingly large number of automated brute force attacks (see the 30 Day Challenge project for an account of my first encounter with this phenomenon). 
-
-Once we have the host up and running, we will use the Windows Remote Desktop Protocol (RDP) to connect to it via our SOC Analyst laptop in order to install Sysmon. Sysmon is a Windows service used to collect detailed information on process creation, network connections, and even file modification. 
+The first step in the lab consisted of deploying the Windows 10 client which functioned as the victim in our project scenario. To accomplish this, we navigated to the main Vultr display panel and deployed a new instance, specifying Windows 10 as the operating system and allocating an appropriate amount of RAM, storage, and CPU cores to the instance. We also created a Firewall policy that blocks all traffic from all IP addresses except for the SOC analyst laptop, which is given access to all TCP ports (1-65535), and then added the new Windows host to this policy. This is a critical step, as otherwise our host will be exposed to the entire internet. In other labs I have conducted, instances which were exposed in this way were almost immediately discovered by bots (in an under an hour in several cases), and subsequently became the victim of a large number of brute force attacks (the 30 Day Challenge/ELK stack project, which is under development, provides a more detailed account of my encounter with this phenomenon). 
 
 <div>
   <img src="lab_images/Firewall Group.png" alt="SOC Automation Network Diagram" width="1100" height="150">
@@ -39,17 +37,17 @@ Once we have the host up and running, we will use the Windows Remote Desktop Pro
   *Ref. 2: A screenshot of the single rule added to the Auto-SOC-Default Firewall Group, the IP address of the SOC Analyst laptop has been redacted for the privacy of the author*
 </div>
 
-We will be using Sysmon to detect the actions of a simulated hack further on in the lab, and it will accordingly be Sysmon data that will be ingested by our SIEM.
+Once the Windows host was up and running, we used the Windows Remote Desktop Protocol (RDP) to connect to it via our SOC Analyst laptop in order to install Sysmon. Sysmon is a Windows service used to collect detailed information on process creation, network connections, and even file modification. This application adds a lot of detail and context to Windows system logs that is otherwise lost, and is thus highly useful for anyone looking to find evil in a Windows system. For this project, Sysmon was used to detect the actions of a simulated hack (consisting of the creation of a Mimikatz process), and it will accordingly be Sysmon data that will be ingested by our SIEM.
 
-To install the applicaiton, we navigate to the official download page on Microsoft's website:
+To install the applicaiton, we navigated to the official download page on Microsoft's website:
 
     https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
 
-and follow the usual procedure for downloading something from the internet. Once the download is finished, a folder called Sysmon.zip will be present in the downloads folder. This folder must be extracted, it doesn't really matter where, but in this case we will just use the Downloads folder. Next, we will need to grab the configuration file we will be using from the Github page at which it is hosted:
+and followed the usual procedure for downloading something from the internet. Once the download was finished, a folder called Sysmon.zip was waiting for us in the Downloads folder. This zipped folder had to be be extracted, and the Downloads folder was once again used as the destination. As outlined in the Sysmon documentation (referenced below), to install Sysmon once the file has been extracted, one needs to run the executable included in the download with an optional configuration file. For this lab, the popular sysmon-modular configuration was used, and can be found at the following address. 
 
     https://github.com/olafhartong/sysmon-modular/blob/master/sysmonconfig.xml
 
-saving the file in the extracted Sysmon folder we just created. 
+Thus, this file was accessed via the link above, and saved into the Sysmon folder that was just extracted.
 
 <div>
   <img src="lab_images/Sysmonconfig.png" alt="SOC Automation Network Diagram" width="1100" height="200">
@@ -57,113 +55,117 @@ saving the file in the extracted Sysmon folder we just created.
   *Ref. 3: The beginning of the Sysmon configuration file utilized in this project*
 </div>
 
-Once this is accomplished, we need to open a PowerShell session as an administrator and run the installation executable. To do so, we navigate to the appropriate directory,
+Once this was accomplished, we opened a PowerShell session as an administrator and ran the installation executable. To do so, we first navigated to the appropriate directory,
 
     cd C:\Users\Administrator\Downloads\Sysmon
 
-and then run the executable, using the -i option to specify the configuration file:
+and then ran the executable, using the -i option to specify the configuration file:
 
     .\Sysmon64 -i sysmonconfig.xml
 
-Now, we check the Windows services list to ensure that Sysmon has indeed been installed and is present on the machine. To do this, one navigates to the Services app (which can be found by simply searching for 'services' in the Windows start menu), then scrolling to the S section of the window (the services are ordered alphabetically) and searching for Sysmon64 on the list. In this case, we are successful and will move onto the next step, creating the Wazuh server.
+After the executable was finished running, we checked the Windows services list to ensure that Sysmon has indeed been succesfully installed and is present on the machine. This was done by navigating to the Services app (which can be found by simply searching for 'services' in the Windows start menu), then scrolling to the S section of the Services window (the services are ordered alphabetically) and searching for Sysmon64 on the list. According to the documentation, Windows services are verily similar to Linux services with which the author is much more familiar, and although they can't be controled via Systemd, they function in an analogous way. For example, they can be configured to start on at boot-time and run in the background, not directly interfering with the user, just like Linux services. But, turning our focus back on the lab, our Sysmon install was successful and we were able to move onto the next step, creating the Wazuh server.
 
 <div>
   <img src="lab_images/Sysmon install success.png" alt="SOC Automation Network Diagram" width="1100" height="600">
   
-  *Ref. 3: A snapshot demonstrating the location of the Sysmon64 service in the Windows services list*
+  *Ref. 4: A snapshot demonstrating the location of the Sysmon64 service in the Windows services list*
 </div>
 
 ### Deploying the Wazuh Server
-Now, we move onto the Wazuh server. Q? What is Wazuh?
-In this case, our Wazuh server will be located in the cloud, hosted by Vultr, instead of a VM on our local machine. So, to get started we first login to our Vultr account through their web portal. We then deploy a new server, named Auto-SOC-Wazuh, using Ubuntu 22.04 LTS for the operating system. In terms of system resources, this system will be somewhat beefy, although it is by no means a monster, weighing in at 8GB of RAM and ***GB of storage. Once the server is ready to go, we'll create a new Firewall Group on Vultr, allowing all TCP traffic but only for my local IP. Thus, we will be saved from constant attempts to break into the server by bots. We will add not only the Wazuh server to this group, but TheHive host as well.
+The next step in our lab was deploying the Wazuh server and installing the Wazuh server on this newly deployed instance. Wazuh itself can function both as an Extended Detection and Response (XDR) platform and a SIEM system. It works by installing an agent on machine the administrator would like to monitor, and this agent ingests log data that it forwards to the centralized Wazuh server. Then, the Wazuh server processes the data, generates alerts, etc.
+In this case, our Wazuh server was located in the cloud, hosted by Vultr, instead of a VM on our local machine. So, to deploy the machine, we logged onto to our Vultr account through their web portal and then deployed a new server, named Auto-SOC-Wazuh, using Ubuntu 22.04 LTS for the operating system. In terms of system resources, this system will be somewhat beefy, although it is by no means a monster, weighing in at 8GB of RAM and ***GB of storage. Once the server was ready to go, we added it into the Auto-SOC-Defualt firewall created above to prevent brute force attacks. However, this firewall needed to be modified in order to allow traffic between the Windows host and the Wazuh server. Accordingly, a rule was added to allow all traffic on TCP ports 1-65535 for traffic whose source/desitnation was either the Windows host or the Ubuntu machine.
 
-<div>
-  <img src="lab_images/Firewall Group.png" alt="SOC Automation Network Diagram" width="1100" height="150">
-  
-  *Ref. 4: A screenshot of the single rule added to the Auto-SOC-Default Firewall Group*
-</div>
-
-As soon as the serve finishes booting up, we ssh into its root account via a PowerShell session on the SOC Analyst Laptop, inputting credentials as necessary. In this case, we will install Wazuh using an automated script, which can be found in the Wazuh documentation and may be executed with the following:
+As soon as server finished booting up, we ssh-ed into its root account via a PowerShell session on the SOC Analyst Laptop, inputting credentials as necessary so we could begin the Wazuh install. For this project, Wazuh was installed using an automated script, which can be found in the Wazuh documentation and may be executed with the following:
   
     curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh && bash wazuh-install.sh -a
 
-It would no doubt be beneficial to practice installing the application by hand. This however, must await a future date when the lab will be redone using only manual installation techniques. as the script ran, it was provided a message that ports 1514, 1515, and 443 must all be open. Accordingly, we allowed these ports through the firewall on our machine via ufw:
+It would no doubt be beneficial to practice installing the application by hand. This however, must await a future date when the lab, or a similar lab that also utilizes Wazuh, will be redone using only manual installation techniques. In any case, as the script ran, it output a message declaring that ports 1514, 1515, and 443 must all be open on the Wazuh server. Accordingly, we allowed these ports through the firewall on our machine via ufw:
 
     ufw allow 1515
     ufw allow 1514
     ufw allow 443
     
-after the script was finished running. The script was able to finish running successfully, and we are presented with a message displaying the default credentials to be used to login into the web console:
+after the script was finished running. After the Wazuh isntall script ran successfully, we were presented with a message that displayed the default credentials that were to be used to login to the Wazuh web console:
 
 <div>
   <img src="lab_images/Wazuh Finished + Password.png" alt="SOC Automation Network Diagram" width="900" height="75">
 
-  *Ref. 5: A screenshot of the Wazuh credentials and installation completion message. The server has been dismantled so these credentials no longer correspond to a live instance*
+  *Ref. 6: A screenshot of the Wazuh credentials and installation completion message. The server has been dismantled so these credentials no longer correspond to a live instance*
 </div>
 
+This completed the Wazuh installation process. 
+
 ### Configuring Wazuh
-In this step, we will be installing an agent on our Windows machine. This agent will be responsible for ingesting the sysmon data generated on that machine, and sending it to the Wazuh server for processing. To begin, we need to access the Wazuh application via web browser, and so we navigate to the public IP address of the Wazuh server:
+In this step, we installed a Wazuh agent on our Windows machine. This agent is designed to ingest all sorts of log data generated by the Windows machine, and then forward this data to the Wazuh server. However, by default, it is not configured to ingest Sysmon data, so it was also necessary to change the configuration of the agent to rectify this. To begin the installation process, we first has to access the Wazuh application via web browser, not the Windows host. Thus, we navigated to the public IP address of the Wazuh server:
 
     https://66.42.82.228
     
-(Wazuh defaults to port 443 so we don't need to specify the port in our address). We are thus presented with the Wazuh login screen, and after inputting the credentials outputted in the installation process, we gain access to the Wazuh console.  
+(Wazuh defaults to port 443 so we didn't need to specify the port in our address). We were thus presented with the Wazuh login screen. The login credentials for this application were outputted in the previous stage of the lab, and can actually be viewed in a screenshot above (note, however, that these instances have been dismantled). After inputting the credentials outputted in the installation process, we naturally gained access to the Wazuh console.  
 
 <div>
   <img src="lab_images/Wazuh_Console_Success.png" alt="SOC Automation Network Diagram" width="700" height="300">
 
-  *Ref. 12: A screenshot of the Wazuh console page upon initial login*
+  *Ref. 7: A screenshot of the Wazuh console page upon initial login*
 </div>
 
-There will be a convenient link to add a new agent prominently displayed on the console, and we can simply click this link to begin the process of installing the Wazuh agent on our Windows machine. 
+There was a convenient link to add a new agent prominently displayed on the console, and we simply clicked this link to begin the process of installing the Wazuh agent on our Windows machine. 
 
-Once the link has been clicked, we must specify the operating system of the host on which the agent will be installed, the address the agent will use to communicate with the central Wazuh server (the public IP address of our Wazuh server in this case), as well as optional settings such as an agent name and a group. We will skip the group for now, but input the agent name as Auto-SOC-WIN. After filling in the necessary information, a PowerShell command will be provided that can be used to download the agent on our Windows machine. Thus, we RDP into the machine and run the command. 
+Once the link was clicked, we had to specify the operating system of the host on which the agent will be installed, the address the agent will use to communicate with the central Wazuh server (the public IP address of our Wazuh server in this case), as well as a few optional settings such as the agent name and a group. We skpped the group setting, but input the agent name as Auto-SOC-WIN. After filling in the necessary information, a PowerShell command was provided that, when executed on a Windows host, can be used to download the agent. Thus, we RDP-ed into the Windows machine and ran the command. 
 
 <div>
   <img src="lab_images/Downloading_Wazuh_Agent.png" alt="SOC Automation Network Diagram" width="700" height="100">
 
-  *Ref. 13: The PowerShell command which downloads the Wazuh agent onto the Windows host*
+  *Ref. 8: The PowerShell command which downloads the Wazuh agent onto the Windows host*
 </div>
 
-After the command finishes exuting, we start the Wazuh service on our Windows host with the command below:
+After the command finished executing, we started the Wazuh service on our Windows host with the command below:
 
     net start wazuhsvc
 
-and then hope the agent is able to orchestrate a connection with the Wazuh server. We can verify the object of our hope by checking back into the Wazuh console to see if the agent has connected to Wazuh successfully, and in our case, the connection was indeed successful. 
+hoping the agent was able to orchestrate a connection with the Wazuh server. Luckily, we did not need to rely on hope alone, as we were able to verify a connection by checking back into the Wazuh console to see if the agent had connected successfully, and in our case, the connection was indeed successful. 
 
 <div>
   <img src="lab_images/Windows_Agent_Connected.png" alt="SOC Automation Network Diagram" width="650" height="250">
 
-  *Ref. 14: The Wazuh console after our Windows agent has successfully connected*
+  *Ref. 9: The Wazuh console after our Windows agent has successfully connected*
 </div>
 
-Now that we have a working Wazuh agent, we create a Wazuh rule for detecting the malicious executable Mimikatz. 
+Now that we had a working Wazuh agent, we needed to create a Wazuh rule for detecting the malicious executable Mimikatz. 
 
 ### Downloading Mimikatz and Creating a Rule to Detect It
-As alluded to in the conluding lines of the last session, it is now finally time to simulate some malicious activity on our Windows host and we will hopefully be able to detect this technological malfeasance on through our Wazuh SIEM. First, we'll load up Mimikatz on the Windows target, and once this is done, we'll proceed to create the rule to detect it. 
+As alluded to in the conluding lines of the last session, it was now finally time to simulate some malicious activity on our Windows host and then detect this technological malfeasance through our Wazuh SIEM. First, we loaded up Mimikatz on the Windows target, and once this was done, we proceeded to create a rule to detect it. 
 
-To download Mimikatz, we will first need to add an exclusion to our Windows Defender configuration. An exlusion instructs Defender to not scan a particular folder, file, file type, or process, and we will need to add such an exlusion to the folder into which we intend to download Mimikatz, otherwise Defender will remove it from our machine immediately upon install (this is usually a good thing, as Mimikatz is a very well known malicious file used to pillage the Windows LSASS system for user credentials!). To add the exclusion, one must again open the Start Menu, and search for Windows Security or just Security and select the Windows Security result. From here, we will select the 'Virus & threat protection' option, and then the 'Manage settings' link under 'Virus & threat protection settings'. Then, we scroll all the way to the bottom of the page and click 'Add or remove an exclusion' under Exlusions, then 'Yes' to allow Windows Security to make changes to the device. Finally, we select the 'Add an exclusion+' button, select Folder from the drop-down menu, and then input the file-path for Mimikatz. In my case, I used the Downloads folder, which would be highly unwise if this were a production environment. 
+To download Mimikatz, we first needed to add an exclusion to our Windows Defender configuration. An exlusion instructs Defender to not scan a particular folder, file, file type, or process, and we needed to add such an exlusion to the folder into which we intend to download Mimikatz, otherwise Defender would have removed it from our machine immediately upon install (this is usually a good thing, as Mimikatz is a very well known malicious file used to pillage the Windows LSASS system for user credentials!). To add the exclusion, one must again open the Start Menu, and search for Windows Security or just Security and select the Windows Security result. From here, one must select the 'Virus & threat protection' option, and then the 'Manage settings' link under 'Virus & threat protection settings'. Then, one needs to scroll all the way to the bottom of the page and click 'Add or remove an exclusion' under Exlusions, then 'Yes' to allow Windows Security to make changes to the device. Finally, one selects the 'Add an exclusion+' button, select Folder from the drop-down menu, and then input the file-path for Mimikatz. For this scenario, I executed the process just described to add an exclusion to the Downloads folder, which would be highly unwise if this were a production environment. 
 
 <div>
   <img src="lab_images/part_4/Excluding the Downloads Folder.png" alt="SOC Automation Network Diagram" width="750" height="350">
 
-  *Ref. 17: An image showing how an exclusion is displayed in the exlusions menu after it has been successfully added*
+  *Ref. 10: An image showing how an exclusion is displayed in the exlusions menu after it has been successfully added*
 </div>
 
-Now that Windows Defender will not look askance at our file, we may download it.  <INSERT DOWNLOAD PROCESS FOR MIMIKATZ HERE>
+Now that Windows Defender was configured to not look askance at our file, we were able to download it.  The executable file for Mimikatz can be found at the following Github repository:
 
-Now, we move on to the Wazuh agent. First, we need to configure the Wazuh agent on our Windows host to ingest the logs generated by Sysmon, as this functionality is not present in the default configuration. The configuration file for the agent is located at the following path:
+    https://github.com/gentilkiwi/mimikatz/releases
+    
+In our case, we downloaded the .zip folder onto the Windows machine through a web browser. Note, quite a number of browsers will attempt to block this download, as Mimikatz is quite a notorious piece of malware. It may therefore be necessary to configure your browser to allow the download. For example, in Google Chromse, one needs to navigate to Browser Settings, Security, and then select the No Protection option. 
+
+# INSERT NO PROTECTION IMAGE HERE
+
+Once tthe download was finished, we extracted the mimikatz_trunk.zip folder, and then navigated to the  
+
+At this point, it was time to turn our attention back to the Wazuh agent, with a view towards configuring the agent to ingest Sysmon logs. To do this, we modified the agent's configuration file on the Windows machine. The configuration file for the agent is located at the following path:
 
     C:\Program Files (x86)\ossec-agent\ossec.conf
 
-It's best to copy this file as a backup just in case we make a mistake and our agent breaks. On Windows machines, this is especially straighforward, and can be accomplished by simply right-clicking on the file, selecting copy, and then pasting the copied file in the same location as the original. In our case, we renamed the file to reflect that it was a backup. Now, we open the file configuration file using Notepad. According to the Wazuh documentation (contained in the references section of this project, located below), we will need to add the following lines of code in order for our agent to being collecting logs from Sysmon:
+It's best to copy this file as a backup just in case a mistake is made and the agent breaks. On Windows machines, this is especially straighforward, and can be accomplished by simply right-clicking on the file, selecting copy, and then pasting the copied file in the same location as the original. In our case, we copied the filed with no issue, renaming it to reflect that it was a backup. Next, we opened the file using Notepad. According to the Wazuh documentation (contained in the references section of this project, located below), we needed to add the following lines of code in order for our agent to begin collecting logs from Sysmon:
 
 <div>
   <img src="lab_images/part_4/Configure Wazuh Agent to get Sysmon.png" alt="SOC Automation Network Diagram" width="750" height="125">
 
-  *Ref. 16: A snapshot of the lines added to the Wazuh agent configuration file to enable Sysmon ingestion*
+  *Ref. 11: A snapshot of the lines added to the Wazuh agent configuration file to enable Sysmon ingestion*
 </div>
 
-Once we have added these lines to the file, we need to save the file and restart the Sysmon service so it can read in the changes we just made to its configuration. We can do this in a few different ways, the most straightforward of which is to simply execute the below command in a PowerShell session.
+Once we added these lines to the file, we saved it and then restarted the Sysmon service so it could read in the changes we just made to its configuration. This can be done in a few different ways, the most straightforward of which is to simply execute the below command in a PowerShell session.
 
     Restart-Service -Name wazuh
 
@@ -172,9 +174,11 @@ If, however, GUIs are more your style, this can also be done via the Services ap
 <div>
   <img src="lab_images/part_4/Restarting Wazuh.png" alt="SOC Automation Network Diagram" width="750" height="250">
 
-  *Ref. 17: An image portraying the Wazuh service from within the Windows Services application which portrays the Restart option*
+  *Ref. 12: An image portraying the Wazuh service from within the Windows Services application which portrays the Restart option*
 </div>
 
-At this stage in the process, we have a working Mimikatz executable on the Windows host, and our 
+At this stage in the process, we had a working Mimikatz executable on the Windows host along with a working Wazuh agent configured to ingest Sysmon logs. It was now time to create an alert to detect Mimikatz on our Wazuh server. 
+
+### Creating a Wazuh Alert to Detect Mimikatz
 
 
