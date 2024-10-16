@@ -23,7 +23,7 @@ The Detection Lab project aimed to establish a controlled environment for simula
 As breifly explained above, the overall goal of this project is to set-up a basic SOC environment using Wazuh which will be designed to monitor a single Windows host using an appropriate agent. Once this point has been reach, the project will be expanded using TheHive and Shuffle in order to implement a Security Orchestration, Automation, and Response (SOAR) environment. We want this environment to successfully detect a credential dump on the Windows machine using Mimikatz and then alert our simulated SOC analyst via email. Accordingly, the lab will consist of a SOC analyst machine (my laptop), a Windows 10 host, two Ubuntu 22.04 LTS servers, one of which will host TheHive, the other Wazuh. The Windows machine and both Ubuntu machines will be hosted in the cloud through Vultr. A network diagram illustrating this setup is provided immediately below.
 
 <div>
-  <img src="https://github.com/beersb/SOC-Automation-Lab/blob/main/SOC%20Automation%20Network%20Diagram.drawio.png" alt="SOC Automation Network Diagram" width="800" height="800">
+  <img src="./SOC%20Automation%20Lab%20Network%20XML.drawio.png" alt="SOC Automation Network Diagram" width="800" height="800">
 </div>
 
 *Ref 1: Network Diagram*
