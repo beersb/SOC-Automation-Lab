@@ -149,7 +149,11 @@ Now that Windows Defender was configured to not look askance at our file, we wer
     
 In our case, we downloaded the .zip folder onto the Windows machine through a web browser. Note, quite a number of browsers will attempt to block this download, as Mimikatz is quite a notorious piece of malware. It may therefore be necessary to configure your browser to allow the download. For example, in Google Chromse, one needs to navigate to Browser Settings, Security, and then select the No Protection option. 
 
-# INSERT NO PROTECTION IMAGE HERE
+<div>
+  <img src="lab_images/part_4/Turning Off Safe Browsing.png" alt="SOC Automation Network Diagram" width="750" height="350">
+
+  *Ref. 11: Displays the Turn Off Safe Browsing selection in Google Chrome*
+</div>
 
 Once tthe download was finished, we extracted the mimikatz_trunk.zip folder, and then navigated to the  
 
@@ -162,7 +166,7 @@ It's best to copy this file as a backup just in case a mistake is made and the a
 <div>
   <img src="lab_images/part_4/Configure Wazuh Agent to get Sysmon.png" alt="SOC Automation Network Diagram" width="750" height="125">
 
-  *Ref. 11: A snapshot of the lines added to the Wazuh agent configuration file to enable Sysmon ingestion*
+  *Ref. 12: A snapshot of the lines added to the Wazuh agent configuration file to enable Sysmon ingestion*
 </div>
 
 Once we added these lines to the file, we saved it and then restarted the Sysmon service so it could read in the changes we just made to its configuration. This can be done in a few different ways, the most straightforward of which is to simply execute the below command in a PowerShell session.
@@ -174,11 +178,39 @@ If, however, GUIs are more your style, this can also be done via the Services ap
 <div>
   <img src="lab_images/part_4/Restarting Wazuh.png" alt="SOC Automation Network Diagram" width="750" height="250">
 
-  *Ref. 12: An image portraying the Wazuh service from within the Windows Services application which portrays the Restart option*
+  *Ref. 13: An image portraying the Wazuh service from within the Windows Services application which portrays the Restart option*
 </div>
 
 At this stage in the process, we had a working Mimikatz executable on the Windows host along with a working Wazuh agent configured to ingest Sysmon logs. It was now time to create an alert to detect Mimikatz on our Wazuh server. 
 
 ### Creating a Wazuh Alert to Detect Mimikatz
+By default, Wazuh only logs an event when a rule or alert was triggered. This means that, even if we were to run Mimikatz right after we installed it, Wazuh would not pick up this type of activity as there is no rule or alert defined to detect it. For our lab, we modified this to make Wazuh log everything, which will allow us to look at the data that is logged when we run Mimikatz and create an alert or rule based on that data. To change the configuration accordingly, we first ssh-ed into the Ubuntu server that hosted Wazuh. Then, we made a copy of the configuration file in our home directory, which is located at
+
+    /var/ossec/etc/ossec.conf
+
+via the classic command cp, 
+
+    cp /var/ossec/etc/osssec.conf ~/ossec-backup.conf
+
+The fields that needed to be modified were the <logall> and <logall_json> within the <global> tag. Both needed to be changed to yes, instead of the default, which is no. Thus, we changed the fields accordingly and then restarted the Wazuh service via systemctl. 
+
+<div>
+  <img src="lab_images/part_4/Make Wazuh Ingest Everything.png" alt="SOC Automation Network Diagram" width="750" height="250">
+
+  *Ref. 14: This image displays the area of the Wazuh configuration file that was modified to configure archiving*
+</div>
+
+Again, according to the doucmentation, in order for these alerts to be viewable in the Wazuh web app/dashboard, one also needs to change the filebeat configuration. Thus, we also modified this configuration file. This time, there was only a single variable that needed to be altered. By default, the file reads 'archives: enabled: False', and False needed to be changed to True. 
+
+<div>
+  <img src="lab_images/part_4/Configuring Filebeat Archiving.png" alt="SOC Automation Network Diagram" width="750" height="125">
+
+  *Ref. 15: This image displays the area of the Filebeat configuration file that was modified to configure archiving*
+</div>
+
+At this stage of the lab, Wazuh was archiving everything and filebeat was configured to send these labs to the web application. It was now time to see if we could generate some data via Mimikatz and see if we could use the data generated to create a detection policy. 
+
+
+
 
 
