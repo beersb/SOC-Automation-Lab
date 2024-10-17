@@ -210,7 +210,84 @@ Again, according to the doucmentation, in order for these alerts to be viewable 
 
 At this stage of the lab, Wazuh was archiving everything and filebeat was configured to send these labs to the web application. It was now time to see if we could generate some data via Mimikatz and see if we could use the data generated to create a detection policy. 
 
+First of all, we returned to the Wazuh dashboard to create our rule. Once we logged in successfully, we navigated to the menu whichc consists of three horizontal bars in the top left corner (hereafter referred to as the 3-bar menu) which functions as the main means of navigating around the various pages found in the applicaiton. Once we clicked the 3-bar menu, we then selected the Stack Management page, followed by the Index Pattern option. In Wazuh, and index is a collection of documents that relate to one another, and these indexes are essentially used to organize the data in Wazuh to make search and retrieval more efficient and intuitive. In our case, we were interested in the 
+    
+    wazuh-archives-* index 
+    
+This is because the archives index contains all of the data sent to Wazuh, whereas the other indexes contain alerts or statistical information, and will therefore say nothing about our Mimikatz activity. Unfortunately, the archives index did not exist yet at this point, and so we were forced to  create it. To do this, we selected the Create Index button in the top right corner, and then inputted the name above. Wazuh recognized this name and the creation was successful. 
 
+With the work we had done so far, we should have been able to see Mimikatz activity in the Wazuh dashboard if any had been generated. We decided to test this, and so returned to our RDP connection to the Windows host, and ran Mimikatz via PowerShell:
 
+    .\mimikatz.exe
+
+We then returned to the Wazuh Discover dashboard to search for the Mimikatz event just generated, and lo and behold, there it was!
+
+Both of these data fields By examining the event data fields, we compiled a list of suitable characteristics by which we might identify further Mimikatz activity in the future with an alert. Among these were the 
+
+    originalFileName
+    
+Using this field to identify Mimikatz activity will be advantageous, as it allows the alert to be triggered even if the attacker changes the file name after install. On the contrary, if we were to use a field like 
+
+    data.win.eventdata.image
+
+which stores the current path (including the file name) of the executable, an attacker could bypass our alert by simply changing the file name. 
+
+After we had examined the event data and had a few data fields to use as the basis of our alert, we returned to the Wazuh dashboard to create the rule itself. To create our rule, we took inspiration from some similar rules that exist by default in Wazuh. More specifically, we were looking for a template rule that detected an event that associated with Sysmon Event ID 1, which is a process creation event. To search through the extant Wazuh rules, one navigates to the Home menu, then selects Management, followed by Rules, and finally Manage Rule Files. Once there, the next step is to search for sysmon, and then one will be presented with several results, of which, the file called
+
+    0800_sysmon_id_1.xml
+
+was used as the template for our scenario. 
+
+<div>
+  <img src="lab_images/part_4/Searching for Sysmon Rules.png" alt="SOC Automation Network Diagram" width="950" height="400">
+
+  *Ref. 16: The results of the 'sysmon' search from the Manage Rule Files page*
+</div>
+
+A sample rule (rule 92000, to be precise) was copied from this file, and then pasted into the 
+
+    local_rules.xml
+
+file and altered according to the purposes of the lab. The rule ID was changed from 92000 to 100002 (all custom rules must start form 100000, and 100001 already existed), the level was changed to 15 to reflect the extreme risk a Mimikatz instance represents to the security of a system, and the field name was changed to the win.eventdata.originalFileName identified above. In addition, the regex pattern was altered to fit the original file name of the Mimikatz executable after install, mimikatz.exe, and the options tag was removed. Finally, the description was changed to 'Mimikatz Usage Detected', and the ID tag was change to T1003 which is the MITRE technique code for credential dumping. The end result of this process was the following block of XML code within the local_rules.xml file. 
+
+<div>
+  <img src="lab_images/part_4/mimikatz Wazuh Rule.png" alt="SOC Automation Network Diagram" width="950" height="150">
+
+  *Ref. 17: The results of the 'sysmon' search from the Manage Rule Files page*
+</div>
+
+After making these changes, the file was saved, and then the Wazuh panel prompted us to perform a restart. We confirmed this, and allowed the system to reload. With this last step behind us, we had successfully created the rule to detect Mimikatz, and it was now time test that rule and examine the alerts generated. 
+
+### Testing the Mimikatz Detection Alert
+This process was fairly straight forward. We first navigated back into the RDP session maintained between the Windows and SOC Analyst hosts, and then renamed the Mimikatz executable (that way, we can determine whether the alert will still trigger if we have some light evasion activity on the part of the attacker). In our case, we renamed the file to 'totallynormalfile'.
+
+<div>
+  <img src="lab_images/part_4/mimikatz Rename.png" alt="SOC Automation Network Diagram" width="950" height="50">
+
+  *Ref. 18: An image displaying the renamed Mimikatz file*
+</div>
+
+After we renamed the file, we ran it via PowerShell using the new executable name:
+
+    .\totallynormalfile.exe
+
+<div>
+  <img src="lab_images/part_4/Totally Normal File.png" alt="SOC Automation Network Diagram" width="950" height="200">
+
+  *Ref. 19: An image displaying the output of the Mimikatz executable*
+</div>
+
+At this stage, our alert should have been triggered. To check this, we navigated back to the Security Events panel of the Wazuh dashboard, and were met with a very encouraging result: our alert had been triggered and the Mimikatz executable had been discovered!
+
+<div>
+  <img src="lab_images/part_4/mimikatz Detected.png" alt="SOC Automation Network Diagram" width="1050" height="200">
+
+  *Ref. 20: The alert generated by our newly created rule after running the Mimikatz executable*
+</div>
+
+### Implementing a SOAR with Shuffle Automation
+We now had a working Wazuh alert to detect Mimikatz activity. It was time to expand the capabilities of our SIEM by implementing a SOAR system to enrich the data generated by our alert through VirusTotal, and then send an automated email to our SOC analyst to alert them about the suspicious behavior detected. Both of these events were orchestrated via the open source SOAR platform Shuffle Automation. As a side note, although both of these examples are pretty simple, they went a long way towards deepening our understanding of the potential inherent in SOAR technology. Python, Bash, and other Scripts could be easily incorporated, along with a laundry list of other applications. It will no doubt be an exciting future project to build on the simple implementation which was illustrated here and create a more elaborate response system. 
+
+In any event, we began by creating a Shuffle Automation account. After this, we created a new Workflow. In Shuffle, Workflows are an abstraction used to refer to an automation process.  to ingest data into the Shuffle platform via Wazuh, then send that data to be enriched through a VirusTotal API, and finally generate an email to send to the SOC Analyst. This entire process would be referred to as a Workflow in the Shuffle environment. 
 
 
