@@ -311,7 +311,13 @@ Once this was accomplished, we configured our VirusTotal node to authenticate to
 ### Sending Emails with Shuffle
 The final phase of the lab had arrived, it was time to automatically generate and send an email to the SOC Analyst using Shuffle. This step would end up being more straightforward than I had anticpated, and consisted, first of all, of adding an Email node to our existing Shuffle workflow. 
 
-Once this was accomplished, I added my work email address into Email field of the newly created node, followed by the Subject, and then included various fields from the alert data to generate the body of the emial. 
+Once this was accomplished, I added my work email address into Email field of the newly created node, followed by the Subject, and then included various fields from the alert data to generate the body of the email.
+
+<div>
+  <img src="lab_images/part_4/Shuffle Workflow.png" alt="SOC Automation Network Diagram" width="1050" height="600">
+
+  *Ref. 21: An image of the final Shuffle workflow after both automated email and IoC enrichment via VirusTotal had been implemented*
+</div>
 
 To test our process, we entered the RDP session with the Windows victim once more, and then ran the Mimikatz executable, then checked our email address. Sure enough, we had an email which gave details about the event waiting for us. Our work was thus complete. 
 
@@ -332,7 +338,31 @@ In actuality, things seem to be much more interesting and dynamic. As is by now 
 
 In truth, a security incident is a unique event and may or may not involve executables with previously documented file hashes or traffic from a well-known bad-actor IP address, and *if* it is detected by one of the log daemons, it will come with its own unique set of identifiers and indicators. Thus, it is the job and art of the analyst to interpret these details, transmuting the blind and torrential flood of archival data into clear, actionable intelligence which can be used to reliably and repeatedly identify and thereby crush any and all cyber belligerence. Though this set of facts is surely obvious to a more experienced cybersecurity practitioner, it was a rather profound eureka moment for this sophomorish student. 
 
+Finally, I would like to acknowledge and thank the MyDFIR YouTube channel for inspiring this lab and providing an excellent tutorial for its implementation.
+
 ## References
+MyDFIR Lab Guide\
+https://youtu.be/Lb_ukgtYK_U?si=SyJN64-6e5MuFyDP
+
+Wazuh Installation Script\
+https://documentation.wazuh.com/current/installation-guide/wazuh-server/installation-assistant.html
+
+Wazuh Configuration for Ingesting Sysmon Data\
+https://documentation.wazuh.com/current/user-manual/capabilities/log-data-collection/configuration.html#windows
+
+Symon Download and Documentation Including Event ID Meanings\
+https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+
+Windows Services\
+https://learn.microsoft.com/en-us/dotnet/framework/windows-services/introduction-to-windows-service-applications
+
+Shuffle Automation Trigger Documentation\
+https://shuffler.io/docs/triggers
+
+Shuffle Automation Workflow Documentation\
+https://shuffler.io/docs/workflows
+
+
 
 
 
