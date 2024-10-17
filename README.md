@@ -327,7 +327,7 @@ To test our process, we entered the RDP session with the Windows victim once mor
   *Ref. 21: Creating a new Shuffle Automation Workflow*
 </div>
 
-## Summary and Concluding Thoughts
+## Concluding Insights and Observations
 The main technical objectives covered by this lab and the skills they develop are outlined above, in the intorduction and Objective sections. Here, I will explore what I felt was the most valuable aspect of completing this lab, and how it inspired me to further explore and develop. 
 
 This lab was highly informative for a variety of reasons, but of course, as with most things in life, what I received from it was not what I was expecting. The first take-away was an amazing appreciation for the possibilities of SOAR technology. Although the automation that I established in the lab was pretty simple, it opened my eyes to just how much might be accomplished using this model. The Shuffle platform allows for the use of Python, Bash, and PowerShell scripts, automated email, and supports an extremely large number of third-party apps which can all be used to provide automated responses to security alerts. This is pretty incredible. When one begins contemplating all that might be accomplished with such a mixture of tools, it is hard not to get excited about experimenting further with the technology. To that end, I would like to build upon the foundational SOAR concepts learned in this project in a future lab.
